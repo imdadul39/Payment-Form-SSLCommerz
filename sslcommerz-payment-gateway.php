@@ -1,10 +1,10 @@
 <?php
 
 /**
- * Plugin Name: SSLCommerz Payment Gateway
- * Description: SSLCommerz payment gateway integration with Contact Form.
- * Version: 1.1
- * Author: Imdadul Haque
+ * Plugin Name: MEC sslcommerz payment gateway
+ * Description: MEC sslcommerz payment gateway integration
+ * Version: 1.5
+ * Author: Crebsol Ltd
  * License: GPL2
  */
 
@@ -21,7 +21,27 @@ class SSLCommerz_Payment_Gateway
         add_shortcode('payment_history', array($this, 'payment_history_shortcode'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts')); // Enqueue the custom JavaScript
+
+        add_action('init', array($this, 'setup_custom_email_headers'));
     }
+
+    public function setup_custom_email_headers()
+    {
+        add_filter('wp_mail_from', array($this, 'custom_mail_from'));
+        add_filter('wp_mail_from_name', array($this, 'custom_mail_from_name'));
+    }
+
+    public function custom_mail_from($from_email)
+    {
+        return 'contact@mecommunity.org';
+    }
+
+    public function custom_mail_from_name($from_name)
+    {
+        return 'MEC Team';
+    }
+
+
 
     public function create_sslcommerz_payments_table()
     {
@@ -35,7 +55,6 @@ class SSLCommerz_Payment_Gateway
             cus_name varchar(100) NOT NULL,
             cus_email varchar(100) NOT NULL,
             cus_phone varchar(50) NOT NULL,
-            mec_member_id varchar(50) DEFAULT NULL,
             mec_guest_number int(11) DEFAULT NULL,
             amount decimal(10,2) NOT NULL,
             payment_status varchar(50) NOT NULL,
@@ -56,7 +75,6 @@ class SSLCommerz_Payment_Gateway
             array(
                 'amount' => '400',
                 'btn_text' => 'Proceed to Payment',
-                'member_id_label' => 'MEC Member ID',
                 'guest_num_label' => 'Number of Guests'
             ),
             $atts,
@@ -66,7 +84,7 @@ class SSLCommerz_Payment_Gateway
         ob_start();
 ?>
         <div class="sslcommerz-payment-form">
-            <form method="post" id="sslcommerz-payment-form" novalidate>
+            <form method="post" id="sslcommerz-payment-form">
                 <?php wp_nonce_field('sslcommerz_payment_nonce', '_wpnonce'); ?>
                 <input type="hidden" name="sslcommerz_action" value="process_payment">
                 <input type="hidden" name="amount" value="<?php echo esc_attr($atts['amount']); ?>">
@@ -87,13 +105,8 @@ class SSLCommerz_Payment_Gateway
                 </div>
 
                 <div class="form-group">
-                    <label for="sslcommerz-cus-mec_member_id"><?php echo esc_html($atts['member_id_label']); ?></label>
-                    <input type="text" name="mec_member_id" id="sslcommerz-cus-mec_member_id">
-                </div>
-
-                <div class="form-group">
                     <label for="sslcommerz-cus-guest-num"><?php echo esc_html($atts['guest_num_label']); ?></label>
-                    <input type="number" name="mec_guest_number" id="sslcommerz-cus-guest-num">
+                    <input type="number" name="mec_guest_number" id="sslcommerz-cus-guest-num" min="0">
                 </div>
 
                 <div class="payment-summary">
@@ -104,7 +117,7 @@ class SSLCommerz_Payment_Gateway
                 <button type="submit" class="sslcommerz-pay-button"><?php echo esc_html($atts['btn_text']); ?></button>
             </form>
         </div>
-<?php
+    <?php
         return ob_get_clean();
     }
 
@@ -125,13 +138,15 @@ class SSLCommerz_Payment_Gateway
         $table_name = $wpdb->prefix . 'sslcommerz_payments';
 
         // Configuration - should be moved to settings page
-        $store_id = 'test663387c57f626';
-        $store_passwd = 'test663387c57f626@ssl';
-        $api_url = 'https://sandbox.sslcommerz.com/gwprocess/v3/api.php'; // Updated API version
+        $store_id = 'mecommunityorg0live';
+        $store_passwd = '67A1D95956D8858196';
+
+        $api_url = 'https://securepay.sslcommerz.com/gwprocess/v3/api.php';
+
 
 
         // Get the number of guests and amount
-        $guest_number = isset($_POST['mec_guest_number']) ? intval($_POST['mec_guest_number']) : 1;
+        $guest_number = isset($_POST['mec_guest_number']) ? intval($_POST['mec_guest_number']) : '';
         $amount = floatval($_POST['amount']);
 
         // Multiply amount by the number of guests
@@ -144,26 +159,24 @@ class SSLCommerz_Payment_Gateway
         $wpdb->insert(
             $table_name,
             array(
-                'tran_id' => $tran_id,
-                'cus_name' => sanitize_text_field($_POST['cus_name']),
-                'cus_email' => sanitize_email($_POST['cus_email']),
-                'cus_phone' => sanitize_text_field($_POST['cus_phone']),
-                'mec_member_id' => isset($_POST['mec_member_id']) ? sanitize_text_field($_POST['mec_member_id']) : null,
+                'tran_id'         => $tran_id,
+                'cus_name'        => sanitize_text_field($_POST['cus_name']),
+                'cus_email'       => sanitize_email($_POST['cus_email']),
+                'cus_phone'       => sanitize_text_field($_POST['cus_phone']),
                 'mec_guest_number' => $guest_number,
-                'amount' => $total_amount,
-                'payment_status' => 'Pending',
-                'payment_date' => current_time('mysql'),
+                'amount'          => $total_amount,
+                'payment_status'  => 'Pending',
+                'payment_date'    => current_time('mysql'),
             ),
             array(
-                '%s',
-                '%s',
-                '%s',
-                '%s',
-                '%s',
-                '%d',
-                '%f',
-                '%s',
-                '%s'
+                '%s', // tran_id
+                '%s', // cus_name
+                '%s', // cus_email
+                '%s', // cus_phone
+                '%d', // mec_guest_number
+                '%f', // amount
+                '%s', // payment_status
+                '%s'  // payment_date
             )
         );
 
@@ -253,6 +266,20 @@ class SSLCommerz_Payment_Gateway
             );
         }
 
+        // Send confirmation email if payment is completed
+        if ($payment_status === 'Completed') {
+            $payment = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE tran_id = %s", $tran_id));
+
+            if ($payment) {
+                $to = $payment->cus_email;
+                $subject = 'Payment Confirmation - MEC';
+                $message = "Dear {$payment->cus_name},\n\nThank you for your payment of ৳{$payment->amount}.\n\nYour transaction ID is {$payment->tran_id}.\nWe look forward to seeing you at the event!\n\nBest regards,\nMEC Team";
+                $headers = ['Content-Type: text/plain; charset=UTF-8'];
+
+                wp_mail($to, $subject, $message, $headers);
+            }
+        }
+
         // Display message
         add_action('the_content', function ($content) use ($payment_status) {
             if ($payment_status == 'Completed') {
@@ -267,62 +294,103 @@ class SSLCommerz_Payment_Gateway
     }
 
 
-
     public function payment_history_shortcode()
     {
-        if (!is_user_logged_in()) {
-            return '<p>Please log in to view your payment history.</p>';
+        // Optional: Admin-only view
+        if (!current_user_can('manage_options')) {
+            return '<p>You do not have permission to view this page.</p>';
         }
 
         global $wpdb;
         $table_name = $wpdb->prefix . 'sslcommerz_payments';
-        $user_email = wp_get_current_user()->user_email;
 
-        // Debugging query
-        $query = $wpdb->prepare("SELECT * FROM $table_name WHERE LOWER(cus_email) = LOWER(%s) ORDER BY payment_date DESC", $user_email);
-        error_log($query); // Log the SQL query for debugging
+        // Filter by status
+        $status_filter = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : 'all';
 
-        $payments = $wpdb->get_results($query);
+        // Build query
+        $query = "SELECT * FROM $table_name";
+        $params = [];
 
-        if ($wpdb->last_error) {
-            return '<p>Error in query: ' . esc_html($wpdb->last_error) . '</p>';
+        if ($status_filter !== 'all') {
+            $query .= " WHERE payment_status = %s";
+            $params[] = $status_filter;
+        }
+
+        $query .= " ORDER BY payment_date DESC";
+        $payments = !empty($params) ? $wpdb->get_results($wpdb->prepare($query, ...$params)) : $wpdb->get_results($query);
+
+        // Calculate totals
+        $total_registrations = count($payments);
+        $total_guests = 0;
+        $total_amount_completed = 0;
+
+        foreach ($payments as $payment) {
+            $total_guests += intval($payment->mec_guest_number);
+
+            if (strtolower($payment->payment_status) === 'completed') {
+                $total_amount_completed += floatval($payment->amount);
+            }
         }
 
         ob_start();
-        if (!empty($payments)) {
-            echo '<div class="payment-history">';
-            echo '<h3>Your Payment History</h3>';
-            echo '<div class="table-responsive">';
-            echo '<table class="payment-history-table">';
-            echo '<thead><tr>
-                <th>Transaction ID</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Member ID</th>
-                <th>Guests</th>
-            </tr></thead>';
-            echo '<tbody>';
+    ?>
+        <div class="payment-history">
+            <h3>All Payment History</h3>
+            <div style="overflow:hidden;">
+                <div style="width: 50%;float:left;overflow:hidden">
+                    <form method="get" style="margin-bottom: 15px;">
+                        <input type="hidden" name="page_id" value="<?php echo get_the_ID(); ?>">
+                        <label for="status">Filter by Status:</label>
+                        <select name="status" id="status" onchange="this.form.submit()">
+                            <option value="all" <?php selected($status_filter, 'all'); ?>>All</option>
+                            <option value="Completed" <?php selected($status_filter, 'Completed'); ?>>Completed</option>
+                            <option value="Pending" <?php selected($status_filter, 'Pending'); ?>>Pending</option>
+                        </select>
+                    </form>
+                </div>
+                <div style="width:50%; overflow:hidden; display: flex; align-items: center;justify-content: end; height:80px;">
+                    <p style="margin: 0;"><strong>Total Amount (Completed Only):</strong> ৳<?php echo number_format($total_amount_completed, 2); ?></p>
+                </div>
+            </div>
+            <div style="overflow: hidden;">
+                <p><strong>Total Registrations:</strong> <?php echo $total_registrations; ?>, <strong>Total Guests:</strong> <?php echo $total_guests; ?>, <strong>Total Participate:</strong> <?php echo $total_registrations + $total_guests; ?></p>
+            </div>
 
-            foreach ($payments as $payment) {
-                echo '<tr>';
-                echo '<td>' . esc_html($payment->tran_id) . '</td>';
-                echo '<td>৳' . number_format($payment->amount, 2) . '</td>';
-                echo '<td><span class="payment-status ' . strtolower($payment->payment_status) . '">' . esc_html($payment->payment_status) . '</span></td>';
-                echo '<td>' . date('M j, Y g:i a', strtotime($payment->payment_date)) . '</td>';
-                echo '<td>' . ($payment->mec_member_id ? esc_html($payment->mec_member_id) : 'N/A') . '</td>';
-                echo '<td>' . ($payment->mec_guest_number ? intval($payment->mec_guest_number) : 'N/A') . '</td>';
-                echo '</tr>';
-            }
-
-            echo '</tbody></table></div></div>';
-        } else {
-            echo '<p>No payment history found.</p>';
-        }
+            <?php if (!empty($payments)) : ?>
+                <div class="table-responsive">
+                    <table class="payment-history-table">
+                        <thead>
+                            <tr>
+                                <th>Transaction ID</th>
+                                <th>Name</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Guests</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($payments as $payment) : ?>
+                                <tr>
+                                    <td><?php echo esc_html($payment->tran_id); ?></td>
+                                    <td><?php echo esc_html($payment->cus_name); ?></td>
+                                    <td>৳<?php echo number_format($payment->amount, 2); ?></td>
+                                    <td><span class="payment-status <?php echo strtolower($payment->payment_status); ?>"><?php echo esc_html($payment->payment_status); ?></span></td>
+                                    <td><?php echo date('M j, Y g:i a', strtotime($payment->payment_date)); ?></td>
+                                    <td><?php echo $payment->mec_guest_number ? intval($payment->mec_guest_number) : 'N/A'; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else : ?>
+                <p>No payment history found.</p>
+            <?php endif; ?>
+        </div>
+<?php
 
         return ob_get_clean();
     }
-
 
 
     public function enqueue_styles()
