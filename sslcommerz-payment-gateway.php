@@ -138,10 +138,10 @@ class SSLCommerz_Payment_Gateway
         $table_name = $wpdb->prefix . 'sslcommerz_payments';
 
         // Configuration - should be moved to settings page
-        $store_id = 'mecommunityorg0live';
-        $store_passwd = '67A1D95956D8858196';
+        $store_id = 'sslcommerz ID';
+        $store_passwd = 'Store ID';
 
-        $api_url = 'https://securepay.sslcommerz.com/gwprocess/v3/api.php';
+        $api_url = 'https://sandbox.sslcommerz.com/gwprocess/v3/api.php';
 
 
 
