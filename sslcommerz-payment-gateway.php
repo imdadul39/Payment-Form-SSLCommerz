@@ -33,12 +33,12 @@ class SSLCommerz_Payment_Gateway
 
     public function custom_mail_from($from_email)
     {
-        return 'contact@mecommunity.org';
+        return 'contact@demo.com';
     }
 
     public function custom_mail_from_name($from_name)
     {
-        return 'MEC Team';
+        return 'Demo Team';
     }
 
 
